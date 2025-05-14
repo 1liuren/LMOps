@@ -7,7 +7,8 @@ import time
 import requests
 import config
 import string
-
+from openai import OpenAI
+from loguru import logger
 
 def parse_sectioned_prompt(s):
 
@@ -28,7 +29,7 @@ def parse_sectioned_prompt(s):
     return result
 
 
-def chatgpt(prompt, temperature=0.7, n=1, top_p=1, stop=None, max_tokens=1024, 
+def chatgpt(prompt, temperature=0.7, n=1, top_p=1, stop=None, max_tokens=10240, 
                   presence_penalty=0, frequency_penalty=0, logit_bias={}, timeout=10):
     messages = [{"role": "user", "content": prompt}]
     payload = {
@@ -44,8 +45,25 @@ def chatgpt(prompt, temperature=0.7, n=1, top_p=1, stop=None, max_tokens=1024,
         "logit_bias": logit_bias
     }
     retries = 0
+    client = OpenAI(api_key="none",base_url="http://10.10.50.50:8000/v1")
+    model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
     while True:
         try:
+            completion = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature
+                # n=n,
+                # top_p=top_p,
+                # stop=stop,
+                # max_tokens=max_tokens,
+                # presence_penalty=presence_penalty,
+                # frequency_penalty=frequency_penalty,
+                # logit_bias=logit_bias
+            )
+            # logger.info(f"Prompt: {prompt}")
+            logger.info(f"Completion: {completion.choices[0].message.content}")
+            break
             r = requests.post('https://api.openai.com/v1/chat/completions',
                 headers = {
                     "Authorization": f"Bearer {config.OPENAI_KEY}",
@@ -62,8 +80,10 @@ def chatgpt(prompt, temperature=0.7, n=1, top_p=1, stop=None, max_tokens=1024,
         except requests.exceptions.ReadTimeout:
             time.sleep(1)
             retries += 1
-    r = r.json()
-    return [choice['message']['content'] for choice in r['choices']]
+    completion_result = [choice.message.content for choice in completion.choices]
+    return completion_result
+    # r = r.json()
+    # return [choice['message']['content'] for choice in r['choices']]
 
 
 def instructGPT_logprobs(prompt, temperature=0.7):
